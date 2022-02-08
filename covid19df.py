@@ -520,7 +520,7 @@ def main():
     st.plotly_chart(fig, use_container_width=True)
 
     # óbitos diários
-    ndf = df.iloc[:, 2:]
+    ndf = df.iloc[0:, 2:]
     fig = px.bar(ndf,
                  barmode="group",
                  text_auto=True)
@@ -551,7 +551,7 @@ def main():
     st.plotly_chart(fig, use_container_width=True)
 
     # diário por gênero
-    ndf = df.iloc[:, :2]
+    ndf = df.iloc[0:, :2]
     fig = px.bar(ndf,
                  #y=['masculino', 'feminino'],
                  barmode="group",
