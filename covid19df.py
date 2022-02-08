@@ -491,10 +491,11 @@ def main():
         é de **{vacinados}%**")
 
     display.info(f"O **percentual de óbitos** entre os **não-vacinados** (nenhuma dose) \
-        é de **{nvacinados}%**. Podendo chegar a {nvacinados_max}%")
+        é de **{nvacinados}%**, podendo chegar a {nvacinados_max}%")
 
+    last_date = yesterday if not last_date_cached else last_date_cached
     display.warning(
-        f"OBS.: considerando os dados disponíveis até o dia {last_date_cached.strftime('%m/%d/%Y')}")
+        f"OBS.: considerando os dados disponíveis até o dia {last_date.strftime('%m/%d/%Y')}")
 
     with st.expander("..:: DADOS COLETADOS ::.."):
         display.write(df)
