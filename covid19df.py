@@ -456,7 +456,10 @@ def main():
     # check if cached needs refreshing
     today = datetime.date.today()
     yesterday = today - datetime.timedelta(days=1)
-    cached = True if last_date_cached >= yesterday else False
+    if not last_date_cached:
+        cached = False
+    else:
+        cached = True if last_date_cached >= yesterday else False
 
     # download and convert only if not in cache
     if not cached:
