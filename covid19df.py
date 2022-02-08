@@ -423,7 +423,7 @@ def main():
     a informação sobre o esquema vacinal dos óbitos notificados e registrados.'''
 
     '''Os dados apresentados abaixo foram extraídos a partir
-       de 1º de fevereiro e podem ser conferidos em:'''
+       de 1º de fevereiro e podem ser conferidos na "Síntese diária de óbitos notificados" no endereço:'''
 
     url = 'https://www.saude.df.gov.br/boletinsinformativos-divep-cieves/'
 
@@ -497,15 +497,15 @@ def main():
     nvacinados_max = round(sdf.loc['nenhuma', 'percentual'] +
                            sdf.loc['sem info', 'percentual'], 1)
 
-    display.info(f"O **percentual de óbitos** entre os **vacinados** (com duas ou mais doses) \
+    display.info(f"O **percentual de óbitos** para os **vacinados** (com duas ou mais doses) \
         é de **{vacinados}%**")
 
-    display.info(f"O **percentual de óbitos** entre os **não-vacinados** (nenhuma dose) \
+    display.info(f"O **percentual de óbitos** para os **não-vacinados** (nenhuma dose) \
         é de **{nvacinados}%**, podendo chegar a {nvacinados_max}%")
 
     last_date = yesterday if not last_date_cached else last_date_cached
     display.warning(
-        f"OBS.: considerando os dados disponíveis até o dia {last_date.strftime('%d/%m/%Y')}. \
+        f"OBS.: considerando os dados disponíveis entre 01/02/2022 e {last_date.strftime('%d/%m/%Y')}. \
           As datas correspondem à notificação do óbito e não do óbito em si")
 
     with st.expander("..:: DADOS COLETADOS ::.."):
