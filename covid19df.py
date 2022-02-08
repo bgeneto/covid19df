@@ -469,6 +469,9 @@ def main():
         with open(cache_file, 'wb') as handle:
             pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+    # sort by date (index is str not datetime)
+    df.sort_index(key=lambda x: x.str[6:10]+x.str[3:5]+x.str[0:2])
+
     # quick data validation
     for dt, sr in df.iterrows():
         soma_gen = sr[0:2].sum()
