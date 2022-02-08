@@ -495,7 +495,7 @@ def main():
 
     last_date = yesterday if not last_date_cached else last_date_cached
     display.warning(
-        f"OBS.: considerando os dados disponíveis até o dia {last_date.strftime('%m/%d/%Y')}")
+        f"OBS.: considerando os dados disponíveis até o dia {last_date.strftime('%d/%m/%Y')}")
 
     with st.expander("..:: DADOS COLETADOS ::.."):
         display.write(df)
