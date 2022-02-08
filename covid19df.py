@@ -23,7 +23,7 @@ __maintainer__ = "Bernhard Enders"
 __email__ = "b g e n e t o @ g m a i l d o t c o m"
 __copyright__ = "Copyright 2022, Bernhard Enders"
 __license__ = "GPL"
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 __status__ = "Development"
 __date__ = "20220208"
 
@@ -505,7 +505,8 @@ def main():
 
     last_date = yesterday if not last_date_cached else last_date_cached
     display.warning(
-        f"OBS.: considerando os dados disponíveis até o dia {last_date.strftime('%d/%m/%Y')}")
+        f"OBS.: considerando os dados disponíveis até o dia {last_date.strftime('%d/%m/%Y')}. \
+          As datas correspondem à notificação do óbito e não do óbito em si")
 
     with st.expander("..:: DADOS COLETADOS ::.."):
         display.write(df)
