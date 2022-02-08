@@ -456,7 +456,7 @@ def main():
     # check if cached needs refreshing
     today = datetime.date.today()
     yesterday = today - datetime.timedelta(days=1)
-    cached = True if last_date_cached == yesterday else False
+    cached = True if last_date_cached >= yesterday else False
 
     # download and convert only if not in cache
     if not cached:
@@ -574,7 +574,7 @@ def main():
 
 if __name__ == '__main__':
     # always run as a streamlit app
-    force_streamlit = False
+    force_streamlit = True
 
     output_dir = 'data'
 
