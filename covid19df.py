@@ -23,7 +23,7 @@ __maintainer__ = "Bernhard Enders"
 __email__ = "b g e n e t o @ g m a i l d o t c o m"
 __copyright__ = "Copyright 2022, Bernhard Enders"
 __license__ = "GPL"
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 __status__ = "Development"
 __date__ = "20220208"
 
