@@ -507,7 +507,7 @@ def main():
     display.info(f"O **percentual de óbitos** para os **não-vacinados** (nenhuma dose) \
         é de **{nvacinados}%**")
 
-    display.info(f"O **percentual de óbitos** para **vacinação imcompleta** (somente 1ª dose) \
+    display.info(f"O **percentual de óbitos** para **vacinação incompleta** (somente 1ª dose) \
         é de **{incompleta}%**")
 
     display.warning(
