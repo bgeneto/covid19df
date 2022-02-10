@@ -23,9 +23,9 @@ __maintainer__ = "Bernhard Enders"
 __email__ = "b g e n e t o @ g m a i l d o t c o m"
 __copyright__ = "Copyright 2022, Bernhard Enders"
 __license__ = "GPL"
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 __status__ = "Development"
-__date__ = "20220208"
+__date__ = "20220210"
 
 
 class Output:
@@ -217,7 +217,8 @@ def get_links(url) -> dict:
             except:
                 continue
         else:
-            display.fatal("O site não está disponível no momento. Tente depois ")
+            display.fatal(
+                "O site não está disponível no momento. Tente depois ")
             stop()
 
     # grab all pdf links
@@ -477,7 +478,8 @@ def main():
             pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     # sort by date (index is str not datetime)
-    df.sort_index(key=lambda x: x.str[6:10]+x.str[3:5]+x.str[0:2])
+    df.sort_index(
+        inplace=True, key=lambda x: x.str[6:10]+x.str[3:5]+x.str[0:2])
 
     # quick data validation
     for dt, sr in df.iterrows():
@@ -491,21 +493,25 @@ def main():
                                'valor'] + sdf.loc['masculino', 'valor']
     sdf['percentual'] = round(100.*sdf['valor']/num_total_obitos, 1)
 
-    vacinados = round(sdf.loc['segunda', 'percentual'] +
+    vacinados = round(sdf.loc['única', 'percentual'] +
+                      sdf.loc['segunda', 'percentual'] +
                       sdf.loc['reforço', 'percentual'], 1)
-    nvacinados = sdf.loc['nenhuma', 'percentual']
+    nvacinados = round(sdf.loc['nenhuma', 'percentual'], 1)
+    incompleta = round(sdf.loc['primeira', 'percentual'], 1)
     nvacinados_max = round(sdf.loc['nenhuma', 'percentual'] +
                            sdf.loc['sem info', 'percentual'], 1)
 
-    display.info(f"O **percentual de óbitos** para os **vacinados** (com duas ou mais doses) \
+    display.info(f"O **percentual de óbitos** para os **vacinados** (dose única ou duas ou mais doses) \
         é de **{vacinados}%**")
 
     display.info(f"O **percentual de óbitos** para os **não-vacinados** (nenhuma dose) \
-        é de **{nvacinados}%**, podendo chegar a {nvacinados_max}%")
+        é de **{nvacinados}%**")
 
-    last_date = yesterday if not last_date_cached else last_date_cached
+    display.info(f"O **percentual de óbitos** para **vacinação imcompleta** (somente 1ª dose) \
+        é de **{incompleta}%**")
+
     display.warning(
-        f"OBS.: considerando os dados disponíveis entre 01/02/2022 e {last_date.strftime('%d/%m/%Y')}. \
+        f"OBS.: Considerando apenas os dados disponíveis entre 01/02/2022 e {df.index.max()}. \
           As datas correspondem à notificação do óbito e não do óbito em si")
 
     with st.expander("..:: DADOS COLETADOS ::.."):
