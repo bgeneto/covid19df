@@ -644,7 +644,7 @@ def main():
         ),
         xaxis_title="idade",
         yaxis_title="quantidade de óbitos",
-        showlegend=True,
+        legend_title="faixa-etária",
         hovermode="x"
     )
     st.plotly_chart(fig, use_container_width=True)
