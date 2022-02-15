@@ -534,7 +534,8 @@ def main():
     fig.update_layout(
         title=dict(
             text="Histórico de Óbitos x Doses de Vacina",
-            x=0.0,
+            x=0.90,
+            y=0.925,
             font=dict(
                 size=20,
             )
