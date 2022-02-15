@@ -4,7 +4,6 @@ import os
 import pickle
 import re
 import sys
-from dis import dis
 from pathlib import Path
 from timeit import default_timer as timer
 from typing import Callable
@@ -23,9 +22,9 @@ __maintainer__ = "Bernhard Enders"
 __email__ = "b g e n e t o @ g m a i l d o t c o m"
 __copyright__ = "Copyright 2022, Bernhard Enders"
 __license__ = "GPL"
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 __status__ = "Development"
-__date__ = "20220210"
+__date__ = "20220214"
 
 
 class Output:
@@ -488,16 +487,17 @@ def main():
         if soma_gen != soma_vac:
             display.warning(f"Inconsistência detectada nos dados de {dt}")
 
-    sdf = df.sum().rename('valor').to_frame()
+    sdf = df.sum().rename('óbitos').to_frame()
     num_total_obitos = sdf.loc['feminino',
-                               'valor'] + sdf.loc['masculino', 'valor']
-    sdf['percentual'] = round(100.*sdf['valor']/num_total_obitos, 1)
+                               'óbitos'] + sdf.loc['masculino', 'óbitos']
+    sdf['percentual'] = round(100.*sdf['óbitos']/num_total_obitos, 1)
 
     vacinados = round(sdf.loc['única', 'percentual'] +
                       sdf.loc['segunda', 'percentual'] +
                       sdf.loc['reforço', 'percentual'], 1)
     nvacinados = round(sdf.loc['nenhuma', 'percentual'], 1)
     incompleta = round(sdf.loc['primeira', 'percentual'], 1)
+    reforco = round(sdf.loc['reforço', 'percentual'], 1)
     nvacinados_max = round(sdf.loc['nenhuma', 'percentual'] +
                            sdf.loc['sem info', 'percentual'], 1)
 
@@ -506,6 +506,9 @@ def main():
 
     display.info(f"O **percentual de óbitos** para os **não-vacinados** (nenhuma dose) \
         é de **{nvacinados}%**")
+
+    display.info(f"O **percentual de óbitos** para **vacinados com reforço** \
+        é de **{reforco}%**")
 
     display.info(f"O **percentual de óbitos** para **vacinação incompleta** (somente 1ª dose) \
         é de **{incompleta}%**")
@@ -524,15 +527,22 @@ def main():
     # total de óbitos
     ndf = sdf.iloc[2:]
     fig = px.bar(ndf,
-                 y=ndf['valor'],
+                 y=ndf['óbitos'],
                  x=ndf.index,
                  color=ndf.index,
                  text=ndf['percentual'].apply(lambda x: '{:.1f}%'.format(x)))
     fig.update_layout(
-        title_text="Histórico de Óbitos x Doses de Vacina",
-        title_x=0.5,
+        title=dict(
+            text="Histórico de Óbitos x Doses de Vacina",
+            x=0.0,
+            font=dict(
+                size=20,
+            )
+        ),
         xaxis_title="dose da vacina",
-        yaxis_title="quantidade",
+        yaxis_title="quantidade de óbitos",
+        legend_title="dose vacina",
+        hovermode="x",
     )
     st.plotly_chart(fig, use_container_width=True)
 
@@ -542,10 +552,15 @@ def main():
                  barmode="group",
                  text_auto=True)
     fig.update_layout(
-        title_text="Óbitos Diários x Doses de Vacina",
-        title_x=0.5,
+        title=dict(
+            text="Óbitos Diários x Doses de Vacina",
+            x=0.0,
+            font=dict(
+                size=20,
+            )
+        ),
         xaxis_title="dia",
-        yaxis_title="quantidade",
+        yaxis_title="quantidade de óbitos",
         legend_title="dose vacina",
     )
     st.plotly_chart(fig, use_container_width=True)
@@ -554,31 +569,41 @@ def main():
     ndf = sdf.iloc[:2]
     fig = px.bar(ndf,
                  color=ndf.index,
-                 y=ndf['valor'],
+                 y=ndf['óbitos'],
                  x=ndf.index,
                  text=ndf['percentual'].apply(lambda x: '{:.1f}%'.format(x)))
     # fig.update_layout(bargap=0.2)
     fig.update_layout(
-        title_text="Histórico de Óbitos por Gênero",
-        title_x=0.5,
+        title=dict(
+            text="Histórico de Óbitos por Gênero",
+            x=0.0,
+            font=dict(
+                size=20,
+            )
+        ),
         xaxis_title="gênero",
-        yaxis_title="quantidade",
+        yaxis_title="quantidade de óbitos",
         showlegend=False,
+        hovermode="x"
     )
     st.plotly_chart(fig, use_container_width=True)
 
     # diário por gênero
     ndf = df.iloc[0:, :2]
     fig = px.bar(ndf,
-                 #y=['masculino', 'feminino'],
                  barmode="group",
                  text_auto=True)
     # fig.update_layout(bargap=0.2)
     fig.update_layout(
-        title_text="Óbitos Diários por Gênero",
-        title_x=0.5,
+        title=dict(
+            text="Óbitos Diários por Gênero",
+            x=0.0,
+            font=dict(
+                size=20,
+            )
+        ),
         xaxis_title="dia",
-        yaxis_title="quantidade",
+        yaxis_title="quantidade de óbitos",
         legend_title="gênero",
     )
     st.plotly_chart(fig, use_container_width=True)
@@ -586,7 +611,7 @@ def main():
     # copyright, version and running time info
     end = timer()
     st.caption(
-        f":copyright: 2022 bgeneto | Version: {__version__} | Execution time: {(end-start):.2f}")
+        f":copyright: 2022 bgeneto | Version: {__version__}")
 
 
 if __name__ == '__main__':
