@@ -22,9 +22,9 @@ __maintainer__ = "Bernhard Enders"
 __email__ = "b g e n e t o @ g m a i l d o t c o m"
 __copyright__ = "Copyright 2022, Bernhard Enders"
 __license__ = "GPL"
-__version__ = "1.0.5"
+__version__ = "1.0.6"
 __status__ = "Development"
-__date__ = "20220214"
+__date__ = "20220215"
 
 
 class Output:
@@ -259,11 +259,13 @@ def get_links(url) -> dict:
 
 def load_cache(cache_file: str) -> pd.DataFrame:
     df = None
+    age = None
     if os.path.isfile(cache_file):
         with open(cache_file, 'rb') as handle:
             df = pickle.load(handle)
+            age = pickle.load(handle)
 
-    return df
+    return df, age
 
 
 def convert_to_txt() -> int:
@@ -288,9 +290,53 @@ def convert_to_txt() -> int:
     return num_txt_files
 
 
-def scrap_data():
+def scrap_age(all_txt_files):
     # find and load data to variable
-    all_txt_files = [f for f in Path(output_dir).glob('*.txt')]
+    lst = []
+    for f in all_txt_files:
+        row = {}
+        txt = Path(f.resolve()).read_text()
+        # find date
+        m = re.search(
+            r"^Notificado.*?em.*?(?P<dia>\d{2})[^0-9A-Za-z](?P<mes>\d{2})[^0-9A-Za-z](?P<ano>\d{4})$",
+            txt,
+            flags=re.IGNORECASE | re.MULTILINE)
+        if not m:
+            display.error(f"Não foi possível ler a data no arquivo {f.stem}")
+            continue
+        dia = m.group('dia')
+        mes = m.group('mes')
+        ano = m.group('ano')
+        dt = f"{dia}-{mes}-{ano}"
+        row['data'] = f"{dia}/{mes}/{ano}"
+
+        # find única
+        faixas = ['20 a 29', '30 a 39', '40 a 49',
+                  '50 a 59', '60 a 69', '70 a 79', '80 ou mais']
+        for f in faixas:
+            m = re.search(
+                r"^{}\s+(?P<num>\d+)$".format(f),
+                txt,
+                flags=re.IGNORECASE | re.MULTILINE)
+            if not m:
+                continue
+            row[f] = int(m.group('num'))
+        # append inside first loop
+        lst.append(row)
+
+    df = pd.DataFrame(lst)
+    if df.empty:
+        display.fatal(
+            "Não foi possível coletar os dados sobre as faixas etárias")
+        stop()
+
+    df.set_index('data', inplace=True)
+
+    return df
+
+
+def scrap_data(all_txt_files):
+    # find and load data to variable
     lst = []
     for f in all_txt_files:
         row = {}
@@ -444,7 +490,7 @@ def main():
     check_num_files(cache_file)
 
     # load cached raw_data (deserialize)
-    df = load_cache(cache_file)
+    df, age = load_cache(cache_file)
 
     # check last date in cache
     last_date_cached = None
@@ -471,13 +517,18 @@ def main():
         with st.spinner('Baixando os relatórios...'):
             download_pdfs(urls)
             convert_to_txt()
-        df = scrap_data()
+        all_txt_files = [f for f in Path(output_dir).glob('*.txt')]
+        df = scrap_data(all_txt_files)
+        age = scrap_age(all_txt_files)
         # cache new data
         with open(cache_file, 'wb') as handle:
             pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(age, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     # sort by date (index is str not datetime)
     df.sort_index(
+        inplace=True, key=lambda x: x.str[6:10]+x.str[3:5]+x.str[0:2])
+    age.sort_index(
         inplace=True, key=lambda x: x.str[6:10]+x.str[3:5]+x.str[0:2])
 
     # quick data validation
@@ -488,9 +539,17 @@ def main():
             display.warning(f"Inconsistência detectada nos dados de {dt}")
 
     sdf = df.sum().rename('óbitos').to_frame()
+    sage = age.sum().rename('óbitos').to_frame()
+    sage.sort_index(
+        inplace=True, key=lambda x: x.str[0:2])
     num_total_obitos = sdf.loc['feminino',
                                'óbitos'] + sdf.loc['masculino', 'óbitos']
+    # one more validation 
+    if int(sage.sum()) != num_total_obitos:
+        display.warning("ATENÇÃO: Possível erro na contagem do número total de óbitos por faixa-etária")
+
     sdf['percentual'] = round(100.*sdf['óbitos']/num_total_obitos, 1)
+    sage['percentual'] = round(100.*sage['óbitos']/num_total_obitos, 1)
 
     vacinados = round(sdf.loc['única', 'percentual'] +
                       sdf.loc['segunda', 'percentual'] +
@@ -564,6 +623,48 @@ def main():
         xaxis_title="dia",
         yaxis_title="quantidade de óbitos",
         legend_title="dose vacina",
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # total por idade 
+    fig = px.bar(sage,
+                 color=sage.index,
+                 y=sage['óbitos'],
+                 x=sage.index,
+                 text=sage['percentual'].apply(lambda x: '{:.1f}%'.format(x)))
+    # fig.update_layout(bargap=0.2)
+    fig.update_layout(
+        title=dict(
+            text="Histórico de Óbitos por Idade",
+            x=0.0,
+            y=0.925,
+            font=dict(
+                size=20,
+            )
+        ),
+        xaxis_title="idade",
+        yaxis_title="quantidade de óbitos",
+        showlegend=True,
+        hovermode="x"
+    )
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # diário por idade 
+    fig = px.bar(age,
+                 barmode="group",
+                 text_auto=True)
+    fig.update_layout(
+        title=dict(
+            text="Óbitos Diários x Idade",
+            x=0.0,
+            y=0.925,
+            font=dict(
+                size=20,
+            )
+        ),
+        xaxis_title="dia",
+        yaxis_title="quantidade de óbitos",
+        legend_title="faixa-etária",
     )
     st.plotly_chart(fig, use_container_width=True)
 
