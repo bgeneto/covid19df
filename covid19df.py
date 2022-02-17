@@ -22,9 +22,9 @@ __maintainer__ = "Bernhard Enders"
 __email__ = "b g e n e t o @ g m a i l d o t c o m"
 __copyright__ = "Copyright 2022, Bernhard Enders"
 __license__ = "GPL"
-__version__ = "1.0.6"
+__version__ = "1.0.7"
 __status__ = "Development"
-__date__ = "20220215"
+__date__ = "20220216"
 
 
 class Output:
@@ -339,6 +339,8 @@ def scrap_data(all_txt_files):
     # find and load data to variable
     lst = []
     for f in all_txt_files:
+        errors = 0
+        err_msg = ''
         row = {}
         txt = Path(f.resolve()).read_text()
         # find date
@@ -373,10 +375,10 @@ def scrap_data(all_txt_files):
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
-            display.error(
-                f"Não foi possível contabilizar os óbitos de primeira dose na data {dt}")
-            continue
-        row['primeira'] = int(m.group('primeira'))
+            err_msg += f"Não foi possível contabilizar os óbitos de primeira dose na data {dt}"
+            errors += 1
+        else:
+            row['primeira'] = int(m.group('primeira'))
 
         # find segunda
         m = re.search(
@@ -384,10 +386,10 @@ def scrap_data(all_txt_files):
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
-            display.error(
-                f"Não foi possível contabilizar os óbitos de segunda dose na data {dt}")
-            continue
-        row['segunda'] = int(m.group('segunda'))
+            err_msg += f"Não foi possível contabilizar os óbitos de segunda dose na data {dt}"
+            errors += 1
+        else:
+            row['segunda'] = int(m.group('segunda'))
 
         # find única
         m = re.search(
@@ -395,10 +397,10 @@ def scrap_data(all_txt_files):
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
-            display.error(
-                f"Não foi possível contabilizar os óbitos de dose única na data {dt}")
-            continue
-        row['única'] = int(m.group('unica'))
+            err_msg += f"Não foi possível contabilizar os óbitos de dose única na data {dt}"
+            errors += 1
+        else:
+            row['única'] = int(m.group('unica'))
 
         # find reforço
         m = re.search(
@@ -406,10 +408,10 @@ def scrap_data(all_txt_files):
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
-            display.error(
-                f"Não foi possível contabilizar os óbitos de dose de reforço na data {dt}")
-            continue
-        row['reforço'] = int(m.group('reforco'))
+            err_msg += f"Não foi possível contabilizar os óbitos de dose de reforço na data {dt}"
+            errors += 1
+        else:
+            row['reforço'] = int(m.group('reforco'))
 
         # find não vacinado
         m = re.search(
@@ -417,10 +419,10 @@ def scrap_data(all_txt_files):
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
-            display.error(
-                f"Não foi possível contabilizar os óbitos de não vacinados na data {dt}")
-            continue
-        row['nenhuma'] = int(m.group('nenhuma'))
+            err_msg += f"Não foi possível contabilizar os óbitos de não vacinados na data {dt}"
+            errors += 1
+        else:
+            row['nenhuma'] = int(m.group('nenhuma'))
 
         # find sem informação
         m = re.search(
@@ -428,17 +430,23 @@ def scrap_data(all_txt_files):
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
+            err_msg = f"Não foi possível contabilizar os óbitos sem informação de vacinação na data {dt}  \n"
+            errors += 1
+        else:
+            row['sem info'] = int(m.group('sem_info'))
+
+        # check errors
+        if errors > 2:
             display.error(
-                f"Não foi possível contabilizar os óbitos sem informação de vacinação na data {dt}")
+                f"**ATENÇÃO: Não há dados sobre o esquema vacinal nos óbitos notificados no boletim do dia {dt}**")
             continue
-        row['sem info'] = int(m.group('sem_info'))
 
         # finally we store all the data in a list of dictionaries
         lst.append(row)
 
     df = pd.DataFrame(lst)
     if df.empty:
-        display.fatal("Não foi possível coletar os dados")
+        display.fatal("Não foi possível coletar os dados sobre a vacinação")
         stop()
 
     df.set_index('data', inplace=True)
@@ -538,15 +546,22 @@ def main():
         if soma_gen != soma_vac:
             display.warning(f"Inconsistência detectada nos dados de {dt}")
 
+    # one more validation
+    for idx in age.index:
+        if idx in df.index:
+            diff = int(age.loc[idx].sum()) - df.loc[idx,
+                                                    ['feminino', 'masculino']].sum()
+            if diff < 0:
+                age.loc[idx, 'demais'] = abs(diff)
+                display.warning(
+                    f"Óbitos por faixa-etária corrigido para o dia {idx}")
+
     sdf = df.sum().rename('óbitos').to_frame()
     sage = age.sum().rename('óbitos').to_frame()
     sage.sort_index(
         inplace=True, key=lambda x: x.str[0:2])
     num_total_obitos = sdf.loc['feminino',
                                'óbitos'] + sdf.loc['masculino', 'óbitos']
-    # one more validation 
-    if int(sage.sum()) != num_total_obitos:
-        display.warning("ATENÇÃO: Possível erro na contagem do número total de óbitos por faixa-etária")
 
     sdf['percentual'] = round(100.*sdf['óbitos']/num_total_obitos, 1)
     sage['percentual'] = round(100.*sage['óbitos']/num_total_obitos, 1)
@@ -626,7 +641,7 @@ def main():
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # total por idade 
+    # total por idade
     fig = px.bar(sage,
                  color=sage.index,
                  y=sage['óbitos'],
@@ -648,8 +663,8 @@ def main():
         hovermode="x"
     )
     st.plotly_chart(fig, use_container_width=True)
-    
-    # diário por idade 
+
+    # diário por idade
     fig = px.bar(age,
                  barmode="group",
                  text_auto=True)
