@@ -8,6 +8,7 @@ from pathlib import Path
 from timeit import default_timer as timer
 from typing import Callable
 
+import numpy as np
 import pandas as pd
 import pdfplumber
 import plotly.express as px
@@ -22,7 +23,7 @@ __maintainer__ = "Bernhard Enders"
 __email__ = "b g e n e t o @ g m a i l d o t c o m"
 __copyright__ = "Copyright 2022, Bernhard Enders"
 __license__ = "GPL"
-__version__ = "1.0.8"
+__version__ = "1.1.0"
 __status__ = "Development"
 __date__ = "20220218"
 
@@ -227,11 +228,6 @@ def get_links(url) -> dict:
         if href and 'pdf' in href:
             hrefs.append(href)
 
-    # initial date that has vaccination info
-    iday = '01'
-    imonth = '02'
-    iyear = '22'
-
     # filter pdf links by date
     urls = {}
     for href in hrefs:
@@ -261,14 +257,16 @@ def get_links(url) -> dict:
 
 
 def load_cache(cache_file: str) -> pd.DataFrame:
-    df = None
+    gen = None
     age = None
+    vac = None
     if os.path.isfile(cache_file):
         with open(cache_file, 'rb') as handle:
-            df = pickle.load(handle)
+            gen = pickle.load(handle)
             age = pickle.load(handle)
+            vac = pickle.load(handle)
 
-    return df, age
+    return gen, age, vac
 
 
 def convert_to_txt() -> int:
@@ -293,37 +291,51 @@ def convert_to_txt() -> int:
     return num_txt_files
 
 
+def find_date(txt):
+    '''Find notification date in txt file'''
+    dtregex = r"^Notificado.*?em.*?(?P<dia>\d{2})[.-/](?P<mes>\d{2})[.-/](?P<ano>\d{4})"
+    m = re.search(
+        dtregex,
+        txt,
+        flags=re.IGNORECASE | re.MULTILINE)
+    if not m:
+        return None
+    # date found
+    dia = m.group('dia')
+    mes = m.group('mes')
+    ano = m.group('ano')
+    dt = f"{dia}-{mes}-{ano}"
+
+    return dt
+
+
 def scrap_age(all_txt_files):
     # find and load data to variable
     lst = []
     for f in all_txt_files:
         row = {}
         txt = Path(f.resolve()).read_text()
-        # find date
-        m = re.search(
-            dtregex,
-            txt,
-            flags=re.IGNORECASE | re.MULTILINE)
-        if not m:
+
+        # find notification date in file
+        dt = find_date(txt)
+        if not dt:
             display.error(f"Não foi possível ler a data no arquivo {f.stem}")
             continue
-        dia = m.group('dia')
-        mes = m.group('mes')
-        ano = m.group('ano')
-        dt = f"{dia}-{mes}-{ano}"
-        row['data'] = f"{dia}/{mes}/{ano}"
+        row['data'] = dt
 
         # find única
-        faixas = ['20 a 29', '30 a 39', '40 a 49',
-                  '50 a 59', '60 a 69', '70 a 79', '80 ou mais']
-        for f in faixas:
+        faixas = {'Menor de 2': '0 a 2',
+                  '2 a 10': '2 a 10', '10 a 19': '10 a 19', '20 a 29': '20 a 29',
+                  '30 a 39': '30 a 39', '40 a 49': '40 a 49', '50 a 59': '50 a 59',
+                  '60 a 69': '60 a 69', '70 a 79': '70 a 79', '80 ou mais': '80+'}
+        for f, nm in faixas.items():
             m = re.search(
-                r"^%s\s+(?P<num>\d{1,2})" % f,
+                r"^%s.+?(?P<num>\d{1,2})" % f,
                 txt,
                 flags=re.IGNORECASE | re.MULTILINE)
             if not m:
                 continue
-            row[f] = int(m.group('num'))
+            row[nm] = int(m.group('num'))
         # append inside first loop
         lst.append(row)
 
@@ -338,27 +350,19 @@ def scrap_age(all_txt_files):
     return df
 
 
-def scrap_data(all_txt_files):
+def scrap_gen(all_txt_files):
     # find and load data to variable
     lst = []
     for f in all_txt_files:
-        errors = 0
-        err_msg = ''
         row = {}
         txt = Path(f.resolve()).read_text()
-        # find date
-        m = re.search(
-            dtregex,
-            txt,
-            flags=re.IGNORECASE | re.MULTILINE)
-        if not m:
+
+        # find notification date in file
+        dt = find_date(txt)
+        if not dt:
             display.error(f"Não foi possível ler a data no arquivo {f.stem}")
             continue
-        dia = m.group('dia')
-        mes = m.group('mes')
-        ano = m.group('ano')
-        dt = f"{dia}-{mes}-{ano}"
-        row['data'] = f"{dia}/{mes}/{ano}"
+        row['data'] = dt
 
         # find deaths by gender
         m = re.search(
@@ -371,6 +375,35 @@ def scrap_data(all_txt_files):
             continue
         row['feminino'] = int(m.group('feminino'))
         row['masculino'] = int(m.group('masculino'))
+
+        # finally we store all the data in a list of dictionaries
+        lst.append(row)
+
+    df = pd.DataFrame(lst)
+    if df.empty:
+        display.fatal("Não foi possível coletar os dados de óbitos por gênero")
+        stop()
+
+    df.set_index('data', inplace=True)
+
+    return df
+
+
+def scrap_vac(all_txt_files):
+    # find and load data to variable
+    lst = []
+    for f in all_txt_files:
+        errors = 0
+        err_msg = ''
+        row = {}
+        txt = Path(f.resolve()).read_text()
+
+        # find notification date in file
+        dt = find_date(txt)
+        if not dt:
+            display.error(f"Não foi possível ler a data no arquivo {f.stem}")
+            continue
+        row['data'] = dt
 
         # find primeira
         m = re.search(
@@ -471,9 +504,9 @@ def check_num_files(cache_file):
 
 
 def main():
-    start = timer()
-
     #sidebar = initial_sidebar_config()
+
+    url = 'https://www.saude.df.gov.br/boletinsinformativos-divep-cieves/'
 
     '''Desde o dia 1º de fevereiro de 2022, os boletins epidemiológicos
     da Secretaria de Saúde do Distrito Federal começaram a trazer
@@ -481,8 +514,6 @@ def main():
 
     '''Os dados apresentados abaixo foram extraídos a partir
        de 1º de fevereiro e podem ser conferidos na "Síntese diária de óbitos notificados" no endereço:'''
-
-    url = 'https://www.saude.df.gov.br/boletinsinformativos-divep-cieves/'
 
     display.write(url)
 
@@ -501,15 +532,15 @@ def main():
     check_num_files(cache_file)
 
     # load cached raw_data (deserialize)
-    df, age = load_cache(cache_file)
+    gen, age, vac = load_cache(cache_file)
 
     # check last date in cache
     last_date_cached = None
-    if df is not None:
-        last_date_cached = df.index.max()
+    if gen is not None:
+        last_date_cached = gen.index.max()
         try:
             last_date_cached = datetime.datetime.strptime(
-                last_date_cached, "%d/%m/%Y").date()
+                last_date_cached, "%d-%m-%Y").date()
         except:
             display.fatal("Formato de data inválido")
             stop()
@@ -529,56 +560,66 @@ def main():
             download_pdfs(urls)
             convert_to_txt()
         all_txt_files = [f for f in Path(output_dir).glob('*.txt')]
-        df = scrap_data(all_txt_files)
+        gen = scrap_gen(all_txt_files)
         age = scrap_age(all_txt_files)
+        vac = scrap_vac(all_txt_files)
         # cache new data
         with open(cache_file, 'wb') as handle:
-            pickle.dump(df, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(gen, handle, protocol=pickle.HIGHEST_PROTOCOL)
             pickle.dump(age, handle, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump(vac, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     # sort by date (index is str not datetime)
-    df.sort_index(
-        inplace=True, key=lambda x: x.str[6:10]+x.str[3:5]+x.str[0:2])
+    def sfunc(x): return x.str[6:10]+x.str[3:5]+x.str[0:2]
+    gen.sort_index(
+        inplace=True, key=sfunc)
+    vac.sort_index(
+        inplace=True, key=sfunc)
     age.sort_index(
-        inplace=True, key=lambda x: x.str[6:10]+x.str[3:5]+x.str[0:2])
+        inplace=True, key=sfunc)
     age.sort_index(axis=1, inplace=True)
 
-    # quick data validation
-    for dt, sr in df.iterrows():
-        soma_gen = sr[0:2].sum()
-        soma_vac = sr[2:].sum()
-        if soma_gen != soma_vac:
-            display.warning(f"Inconsistência detectada nos dados de {dt}")
+    # vac validation based on gender numbers
+    for idx in gen.index:
+        if idx in vac.index:
+            diff = int(vac.loc[idx].sum()) - gen.loc[idx].sum()
+            if diff < 0:
+                vac.loc[idx] = np.nan
+                display.warning(
+                    f"Faltam dados sobre óbitos de vacinados no dia {idx}")
 
-    # one more validation
-    for idx in age.index:
-        if idx in df.index:
-            diff = int(age.loc[idx].sum()) - df.loc[idx,
-                                                    ['feminino', 'masculino']].sum()
+    # age validation based on gender numbers
+    for idx in gen.index:
+        if idx in age.index:
+            diff = int(age.loc[idx].sum()) - gen.loc[idx].sum()
             if diff < 0:
                 age.loc[idx, 'demais'] = abs(diff)
                 display.warning(
                     f"Óbitos por faixa-etária corrigido para o dia {idx}")
 
-    sdf = df.sum().rename('óbitos').to_frame()
+    # soma
+    sgen = gen.sum().rename('óbitos').to_frame()
     sage = age.sum().rename('óbitos').to_frame()
+    svac = vac.sum().rename('óbitos').to_frame()
+
+    # add percent column
+    sgen['percentual'] = round(100.*sgen['óbitos']/sgen['óbitos'].sum(), 1)
+    sage['percentual'] = round(100.*sage['óbitos']/sage['óbitos'].sum(), 1)
+    svac['percentual'] = round(100.*svac['óbitos']/svac['óbitos'].sum(), 1)
+
+    # special ordering
     sage.sort_index(
         inplace=True, key=lambda x: x.str[0:2])
-    num_total_obitos = sdf.loc['feminino',
-                               'óbitos'] + sdf.loc['masculino', 'óbitos']
 
-    sdf['percentual'] = round(100.*sdf['óbitos']/num_total_obitos, 1)
-    sage['percentual'] = round(100.*sage['óbitos']/num_total_obitos, 1)
+    # rounded percents
+    vacinados = round(svac.loc['única', 'percentual'] +
+                      svac.loc['segunda', 'percentual'] +
+                      svac.loc['reforço', 'percentual'], 1)
+    nvacinados = round(svac.loc['nenhuma', 'percentual'], 1)
+    incompleta = round(svac.loc['primeira', 'percentual'], 1)
+    reforco = round(svac.loc['reforço', 'percentual'], 1)
 
-    vacinados = round(sdf.loc['única', 'percentual'] +
-                      sdf.loc['segunda', 'percentual'] +
-                      sdf.loc['reforço', 'percentual'], 1)
-    nvacinados = round(sdf.loc['nenhuma', 'percentual'], 1)
-    incompleta = round(sdf.loc['primeira', 'percentual'], 1)
-    reforco = round(sdf.loc['reforço', 'percentual'], 1)
-    nvacinados_max = round(sdf.loc['nenhuma', 'percentual'] +
-                           sdf.loc['sem info', 'percentual'], 1)
-
+    # display basic info
     display.info(f"O **percentual de óbitos** para os **vacinados** (dose única ou duas ou mais doses) \
         é de **{vacinados}%**")
 
@@ -591,24 +632,27 @@ def main():
     display.info(f"O **percentual de óbitos** para **vacinação incompleta** (somente 1ª dose) \
         é de **{incompleta}%**")
 
+    display.info(f"O **total de óbitos** no DF entre 01-02-2022 e {gen.index.max()} \
+        é de **{sgen['óbitos'].sum()}**")
+
     display.warning(
-        f"OBS.: Considerando apenas os dados disponíveis entre 01/02/2022 e {df.index.max()}. \
-          As datas correspondem à notificação do óbito e não do óbito em si")
+        f"ATENÇÃO: Os dados sobre o esquema vacinal dos óbitos foi removido dos boletins oficiais. \
+          Tais dados estão disponíveis somente entre os dias 01-02-2022 e {vac.index.max()}")
 
     with st.expander("..:: DADOS COLETADOS ::.."):
-        display.write(df)
+        st.dataframe(
+            pd.concat([df for df in [vac, gen, age]], axis=1, join='outer').reset_index())
 
     # ===========
     #    PLOTS
     # ===========
 
     # total de óbitos
-    ndf = sdf.iloc[2:]
-    fig = px.bar(ndf,
-                 y=ndf['óbitos'],
-                 x=ndf.index,
-                 color=ndf.index,
-                 text=ndf['percentual'].apply(lambda x: '{:.1f}%'.format(x)))
+    fig = px.bar(svac,
+                 y=svac['óbitos'],
+                 x=svac.index,
+                 color=svac.index,
+                 text=svac['percentual'].apply(lambda x: '{:.1f}%'.format(x)))
     fig.update_layout(
         title=dict(
             text="Total de Óbitos x Doses de Vacina",
@@ -627,8 +671,7 @@ def main():
     st.plotly_chart(fig, use_container_width=True)
 
     # óbitos diários
-    ndf = df.iloc[0:, 2:]  # .sort_values(['segunda'],ascending=[False])
-    fig = px.bar(ndf,
+    fig = px.bar(vac,
                  barmode="group",
                  text_auto=False)
     fig.update_layout(
@@ -689,12 +732,11 @@ def main():
     st.plotly_chart(fig, use_container_width=True)
 
     # total por gênero
-    ndf = sdf.iloc[:2]
-    fig = px.bar(ndf,
-                 color=ndf.index,
-                 y=ndf['óbitos'],
-                 x=ndf.index,
-                 text=ndf['percentual'].apply(lambda x: '{:.1f}%'.format(x)))
+    fig = px.bar(sgen,
+                 color=sgen.index,
+                 y=sgen['óbitos'],
+                 x=sgen.index,
+                 text=sgen['percentual'].apply(lambda x: '{:.1f}%'.format(x)))
     # fig.update_layout(bargap=0.2)
     fig.update_layout(
         title=dict(
@@ -713,8 +755,7 @@ def main():
     st.plotly_chart(fig, use_container_width=True)
 
     # diário por gênero
-    ndf = df.iloc[0:, :2]
-    fig = px.bar(ndf,
+    fig = px.bar(gen,
                  barmode="group",
                  text_auto=False)
     # fig.update_layout(bargap=0.2)
@@ -734,9 +775,8 @@ def main():
     st.plotly_chart(fig, use_container_width=True)
 
     # copyright, version and running time info
-    end = timer()
     st.caption(
-        f":copyright: 2022 bgeneto | Version: {__version__}")
+        f":copyright: 2022 bgeneto | Versão: {__version__}")
 
 
 if __name__ == '__main__':
@@ -747,8 +787,6 @@ if __name__ == '__main__':
 
     # page title/header
     title = "Óbitos de Vacinados no DF"
-
-    dtregex = r"^Notificado.*?em.*?(?P<dia>\d{2})[.-/](?P<mes>\d{2})[.-/](?P<ano>\d{4})"
 
     # configure print output (streamlit, python, ipython etc...)
     display = Output()
