@@ -22,9 +22,9 @@ __maintainer__ = "Bernhard Enders"
 __email__ = "b g e n e t o @ g m a i l d o t c o m"
 __copyright__ = "Copyright 2022, Bernhard Enders"
 __license__ = "GPL"
-__version__ = "1.0.7"
+__version__ = "1.0.8"
 __status__ = "Development"
-__date__ = "20220216"
+__date__ = "20220218"
 
 
 class Output:
@@ -236,7 +236,10 @@ def get_links(url) -> dict:
     urls = {}
     for href in hrefs:
         m = re.search(
-            r"Obito.*?Covid.*?Notificado.*?(?P<dia>\d{2})[^0-9A-Za-z](?P<mes>\d{2})[^0-9A-Za-z](?P<ano>\d{2})\.pdf", href, flags=re.IGNORECASE)
+            r"Obito.*?Covid.*?Notificado.*?(?P<dia>\d{2})[^0-9A-Za-z](?P<mes>\d{2})[^0-9A-Za-z](?P<ano>\d{2}).*\.pdf",
+            href,
+            flags=re.IGNORECASE
+        )
         if m is not None:
             try:
                 dia = m.group('dia')
@@ -298,7 +301,7 @@ def scrap_age(all_txt_files):
         txt = Path(f.resolve()).read_text()
         # find date
         m = re.search(
-            r"^Notificado.*?em.*?(?P<dia>\d{2})[^0-9A-Za-z](?P<mes>\d{2})[^0-9A-Za-z](?P<ano>\d{4})$",
+            dtregex,
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
@@ -315,7 +318,7 @@ def scrap_age(all_txt_files):
                   '50 a 59', '60 a 69', '70 a 79', '80 ou mais']
         for f in faixas:
             m = re.search(
-                r"^{}\s+(?P<num>\d+)$".format(f),
+                r"^%s\s+(?P<num>\d{1,2})" % f,
                 txt,
                 flags=re.IGNORECASE | re.MULTILINE)
             if not m:
@@ -345,7 +348,7 @@ def scrap_data(all_txt_files):
         txt = Path(f.resolve()).read_text()
         # find date
         m = re.search(
-            r"^Notificado.*?em.*?(?P<dia>\d{2})[^0-9A-Za-z](?P<mes>\d{2})[^0-9A-Za-z](?P<ano>\d{4})$",
+            dtregex,
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
@@ -359,7 +362,7 @@ def scrap_data(all_txt_files):
 
         # find deaths by gender
         m = re.search(
-            r"^Feminino\s*(?P<feminino>\d+)\nMasculino\s*(?P<masculino>\d+)$",
+            r"^Feminino\s*(?P<feminino>\d+)\s*\nMasculino\s*(?P<masculino>\d+)",
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
@@ -371,7 +374,7 @@ def scrap_data(all_txt_files):
 
         # find primeira
         m = re.search(
-            r"^.+?primeira\s*dose\s*(?P<primeira>\d+)$",
+            r"^.+?primeira\s*dose\s*(?P<primeira>\d+)",
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
@@ -382,7 +385,7 @@ def scrap_data(all_txt_files):
 
         # find segunda
         m = re.search(
-            r"^Segunda\s*Dose\s*(?P<segunda>\d+)$",
+            r"^Segunda\s*Dose\s*(?P<segunda>\d+)",
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
@@ -393,7 +396,7 @@ def scrap_data(all_txt_files):
 
         # find única
         m = re.search(
-            r"^Dose\s*[ÚúuU]nica\s*(?P<unica>\d+)$",
+            r"^Dose\s*[ÚúuU]nica\s*(?P<unica>\d+)",
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
@@ -404,7 +407,7 @@ def scrap_data(all_txt_files):
 
         # find reforço
         m = re.search(
-            r"^Dose.+?Refor[cçCÇ]o\s*(?P<reforco>\d+)$",
+            r"^Dose.+?Refor[cçCÇ]o\s*(?P<reforco>\d+)",
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
@@ -415,7 +418,7 @@ def scrap_data(all_txt_files):
 
         # find não vacinado
         m = re.search(
-            r"^Não\s*vacinado\s*(?P<nenhuma>\d+)$",
+            r"^Não\s*vacinado\s*(?P<nenhuma>\d+)",
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
@@ -426,7 +429,7 @@ def scrap_data(all_txt_files):
 
         # find sem informação
         m = re.search(
-            r"^Sem\s*informa.+?(?P<sem_info>\d+)$",
+            r"^Sem\s*informa.+?(?P<sem_info>\d+)",
             txt,
             flags=re.IGNORECASE | re.MULTILINE)
         if not m:
@@ -538,6 +541,7 @@ def main():
         inplace=True, key=lambda x: x.str[6:10]+x.str[3:5]+x.str[0:2])
     age.sort_index(
         inplace=True, key=lambda x: x.str[6:10]+x.str[3:5]+x.str[0:2])
+    age.sort_index(axis=1, inplace=True)
 
     # quick data validation
     for dt, sr in df.iterrows():
@@ -607,7 +611,7 @@ def main():
                  text=ndf['percentual'].apply(lambda x: '{:.1f}%'.format(x)))
     fig.update_layout(
         title=dict(
-            text="Histórico de Óbitos x Doses de Vacina",
+            text="Total de Óbitos x Doses de Vacina",
             x=0.0,
             y=0.925,
             font=dict(
@@ -618,14 +622,15 @@ def main():
         yaxis_title="quantidade de óbitos",
         legend_title="dose vacina",
         hovermode="x",
+        xaxis={'categoryorder': 'total ascending'}
     )
     st.plotly_chart(fig, use_container_width=True)
 
     # óbitos diários
-    ndf = df.iloc[0:, 2:]
+    ndf = df.iloc[0:, 2:]  # .sort_values(['segunda'],ascending=[False])
     fig = px.bar(ndf,
                  barmode="group",
-                 text_auto=True)
+                 text_auto=False)
     fig.update_layout(
         title=dict(
             text="Óbitos Diários x Doses de Vacina",
@@ -635,7 +640,7 @@ def main():
                 size=20,
             )
         ),
-        xaxis_title="dia",
+        xaxis_title="data de notificação",
         yaxis_title="quantidade de óbitos",
         legend_title="dose vacina",
     )
@@ -650,14 +655,14 @@ def main():
     # fig.update_layout(bargap=0.2)
     fig.update_layout(
         title=dict(
-            text="Histórico de Óbitos por Idade",
+            text="Total de Óbitos por Idade",
             x=0.0,
             y=0.925,
             font=dict(
                 size=20,
             )
         ),
-        xaxis_title="idade",
+        xaxis_title="faixa-etária",
         yaxis_title="quantidade de óbitos",
         legend_title="faixa-etária",
         hovermode="x"
@@ -667,17 +672,17 @@ def main():
     # diário por idade
     fig = px.bar(age,
                  barmode="group",
-                 text_auto=True)
+                 text_auto=False)
     fig.update_layout(
         title=dict(
-            text="Óbitos Diários x Idade",
+            text="Óbitos Diários por Idade",
             x=0.0,
             y=0.925,
             font=dict(
                 size=20,
             )
         ),
-        xaxis_title="dia",
+        xaxis_title="data de notificação",
         yaxis_title="quantidade de óbitos",
         legend_title="faixa-etária",
     )
@@ -693,7 +698,7 @@ def main():
     # fig.update_layout(bargap=0.2)
     fig.update_layout(
         title=dict(
-            text="Histórico de Óbitos por Gênero",
+            text="Total de Óbitos por Gênero",
             x=0.0,
             y=0.925,
             font=dict(
@@ -711,7 +716,7 @@ def main():
     ndf = df.iloc[0:, :2]
     fig = px.bar(ndf,
                  barmode="group",
-                 text_auto=True)
+                 text_auto=False)
     # fig.update_layout(bargap=0.2)
     fig.update_layout(
         title=dict(
@@ -722,7 +727,7 @@ def main():
                 size=20,
             )
         ),
-        xaxis_title="dia",
+        xaxis_title="data de notificação",
         yaxis_title="quantidade de óbitos",
         legend_title="gênero",
     )
@@ -742,6 +747,8 @@ if __name__ == '__main__':
 
     # page title/header
     title = "Óbitos de Vacinados no DF"
+
+    dtregex = r"^Notificado.*?em.*?(?P<dia>\d{2})[.-/](?P<mes>\d{2})[.-/](?P<ano>\d{4})"
 
     # configure print output (streamlit, python, ipython etc...)
     display = Output()
