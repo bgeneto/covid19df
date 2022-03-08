@@ -474,7 +474,7 @@ def scrap_vac(all_txt_files):
         # check errors
         if errors > 2:
             display.error(
-                f"**ATENÇÃO: Não há dados sobre o esquema vacinal nos óbitos notificados no boletim do dia {dt}**")
+                f"**ATENÇÃO: Não há dados sobre o esquema vacinal dos óbitos notificados no boletim do dia {dt}**")
             continue
 
         # finally we store all the data in a list of dictionaries
@@ -632,7 +632,7 @@ def main():
     display.info(f"O **percentual de óbitos** para **vacinação incompleta** (somente 1ª dose) \
         é de **{incompleta}%**")
 
-    display.info(f"O **total de óbitos** no DF entre 01-02-2022 e {gen.index.max()} \
+    display.info(f"O **total de óbitos** por covid-19 no DF entre 01-02-2022 e {gen.index.max()} \
         é de **{sgen['óbitos'].sum()}**")
 
     display.warning(
