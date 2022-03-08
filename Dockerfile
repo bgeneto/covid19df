@@ -8,8 +8,8 @@ RUN pip install --upgrade pip \
 
 FROM python:3-slim AS app
 COPY --from=builder /root/.local /root/.local
-COPY *.py /app/
 WORKDIR app
+COPY . .
 EXPOSE 8501
 ENV PATH=/root/.local/bin:$PATH
 ENTRYPOINT ["streamlit", "run"]
