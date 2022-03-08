@@ -7,7 +7,7 @@ services:
     hostname: covid19df
     restart: always
     ports:
-      - ${PORT}:8501
+      - 8502:${PORT}
     volumes:
       - ./data:/app/data
       - ./covid19df.py:/app/main.py
