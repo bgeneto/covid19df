@@ -10,6 +10,7 @@ services:
       - 8502:8501
     volumes:
       - ./data:/app/data
+      - ./covid19df.py:/app/main.py
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     environment:

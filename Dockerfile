@@ -1,10 +1,16 @@
-FROM python-base
-WORKDIR /app
-COPY requirements.txt ./
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir --user -r requirements.txt
-COPY *.py ./
+FROM python:3-slim AS builder
+COPY packages.txt /tmp/ 
+COPY requirements.txt /tmp/
+RUN apt-get update && xargs apt-get install -y </tmp/packages.txt
+RUN pip install --upgrade pip \
+ && pip install --no-cache-dir --user -r /tmp/requirements.txt
+
+
+FROM python:3-slim AS app
+COPY --from=builder /root/.local /root/.local
+COPY *.py /app/
+WORKDIR app
 EXPOSE 8501
 ENV PATH=/root/.local/bin:$PATH
 ENTRYPOINT ["streamlit", "run"]
-CMD ["covid19df.py"]
+CMD ["main.py"]
