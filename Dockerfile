@@ -1,18 +1,10 @@
-FROM python:3.9
-
-COPY requirements.txt /
-COPY packages.txt /
-
-RUN apt-get update && xargs apt-get install -y </packages.txt
-RUN pip install --upgrade pip
-RUN pip install --no-cache-dir -r /requirements.txt
-
+FROM python-base
+COPY requirements.txt /app/requirements.txt
 WORKDIR /app
-
-COPY ./covid19df.py /app/
-
+RUN pip install --upgrade pip
+RUN pip install --no-cache-dir --user -r requirements.txt
+COPY covid19df.py main.py
 EXPOSE 8501
-
+ENV PATH=/root/.local/bin:$PATH
 ENTRYPOINT ["streamlit", "run"]
-
-CMD ["covid19df.py"]
+CMD ["main.py"]

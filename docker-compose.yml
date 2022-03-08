@@ -2,14 +2,14 @@ version: "3.9"
 services:
   app:
     build: .
-    image: streamlit:latest
+    image: covid19df-streamlit:latest
     container_name: covid19df-streamlit
     hostname: covid19df
     restart: always
     ports:
       - 8502:8501
     volumes:
-      - ./:/app
+      - ./data:/app/data
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     environment:
