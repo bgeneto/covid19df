@@ -3,6 +3,7 @@ numpy
 pandas
 pdfplumber
 plotly
+python-dotenv
 requests
 scipy
 statsmodels
