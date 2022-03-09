@@ -23,9 +23,9 @@ __maintainer__ = "Bernhard Enders"
 __email__ = "b g e n e t o @ g m a i l d o t c o m"
 __copyright__ = "Copyright 2022, Bernhard Enders"
 __license__ = "GPL"
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 __status__ = "Development"
-__date__ = "20220218"
+__date__ = "20220309"
 
 
 class Output:
@@ -473,8 +473,8 @@ def scrap_vac(all_txt_files):
 
         # check errors
         if errors > 2:
-            display.error(
-                f"**ATENÇÃO: Não há dados sobre o esquema vacinal dos óbitos notificados no boletim do dia {dt}**")
+            #    display.error(
+            #        f"**ATENÇÃO: Não há dados sobre o esquema vacinal dos óbitos notificados no boletim do dia {dt}**")
             continue
 
         # finally we store all the data in a list of dictionaries
@@ -652,7 +652,7 @@ def main():
                  y=svac['óbitos'],
                  x=svac.index,
                  color=svac.index,
-                 text=svac['percentual'].apply(lambda x: '{:.1f}%'.format(x)))
+                 text=svac['percentual'])
     fig.update_layout(
         title=dict(
             text="Total de Óbitos x Doses de Vacina",
