@@ -652,7 +652,7 @@ def main():
                  y=svac['óbitos'],
                  x=svac.index,
                  color=svac.index,
-                 text=svac['percentual'])
+                 text=svac['percentual'].apply(lambda x: '{:.1f}%'.format(x)))
     fig.update_layout(
         title=dict(
             text="Total de Óbitos x Doses de Vacina",
